@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM Parameter Playground — Asdale Dynamics</title>
+<style>
+  :root {
+    --bg: #12151c;
+    --panel: #1b202b;
+    --panel-2: #222938;
+    --text: #e6e9f0;
+    --muted: #9aa3b2;
+    --accent: #6ea8fe;
+    --ok: #4ade80;
+    --err: #f87171;
+    --border: #2d3547;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  header {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px;
+    padding: 16px 24px; border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 1.2rem; margin: 0; }
+  header .tagline { color: var(--muted); font-size: 0.9rem; }
+  main { padding: 16px 24px 48px; max-width: 1400px; margin: 0 auto; }
+  section {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px; margin-bottom: 16px;
+  }
+  h2 { font-size: 1rem; margin: 0 0 10px; }
+  h2 small { color: var(--muted); font-weight: normal; }
+  label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 4px; }
+  input[type="text"], input[type="number"], textarea, select {
+    width: 100%; background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px;
+    font: inherit;
+  }
+  textarea { resize: vertical; min-height: 70px; }
+  input:focus, textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
+  button {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 8px 14px; cursor: pointer; font: inherit;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #10203a; font-weight: 600; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+  .row > div { flex: 1 1 180px; }
+  .slider-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .slider-row label { margin: 0; flex: 0 0 130px; }
+  .slider-row input[type="range"] { flex: 1; }
+  .slider-row output { min-width: 56px; text-align: right; font-variant-numeric: tabular-nums; color: var(--accent); }
+  .grid { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(240px, 1fr); gap: 12px; overflow-x: auto; }
+  .variant-col {
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px;
+    display: flex; flex-direction: column; gap: 8px; min-height: 200px;
+  }
+  .variant-col .col-head { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+  .variant-col .col-head .vname { font-weight: 600; font-size: 0.85rem; }
+  .variant-col textarea { min-height: 80px; font-size: 0.85rem; }
+  .output {
+    flex: 1; background: #14181f; border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px; font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 0.8rem; white-space: pre-wrap; overflow-y: auto; max-height: 420px; min-height: 80px;
+  }
+  .output.err { color: var(--err); }
+  .meta { color: var(--muted); font-size: 0.75rem; }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .status { font-size: 0.85rem; color: var(--muted); }
+  .status.ok { color: var(--ok); }
+  .status.err { color: var(--err); }
+  dialog {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; max-width: 560px; width: 90%;
+  }
+  dialog::backdrop { background: rgba(0,0,0,0.6); }
+  dialog .modal-body { display: flex; flex-direction: column; gap: 10px; }
+  footer { color: var(--muted); font-size: 0.75rem; text-align: center; padding-bottom: 24px; }
+  a { color: var(--accent); }
+  @media (max-width: 900px) {
+    .grid { grid-auto-flow: row; grid-auto-columns: auto; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>LLM Parameter Playground</h1>
+  <span class="tagline">Tweak temperature, top-p, seed &amp; more — see every system-prompt variant answer at once. Runs fully offline against your own local endpoint.</span>
+</header>
+<main>
+  <section>
+    <h2>Connection <small>· OpenAI-compatible endpoint (Ollama works out of the box)</small></h2>
+    <div class="row">
+      <div>
+        <label for="baseUrl">Base URL (include /v1)</label>
+        <input id="baseUrl" type="text" placeholder="http://localhost:11434/v1">
+      </div>
+      <div>
+        <label for="model">Model name</label>
+        <input id="model" type="text" placeholder="llama3.2">
+      </div>
+      <div>
+        <label for="apiKey">API key <small>(optional, stays in your browser)</small></label>
+        <input id="apiKey" type="password" placeholder="empty is fine for Ollama">
+      </div>
+      <div style="flex:0 0 auto">
+        <button id="testBtn">Test connection</button>
+      </div>
+    </div>
+    <p id="connStatus" class="status">Not tested yet.</p>
+  </section>
+
+  <section>
+    <h2>Parameters</h2>
+    <div class="slider-row">
+      <label for="temp">Temperature</label>
+      <input id="temp" type="range" min="0" max="2" step="0.01" value="0.7">
+      <output id="tempOut">0.70</output>
+    </div>
+    <div class="slider-row">
+      <label for="topP">Top&nbsp;p</label>
+      <input id="topP" type="range" min="0" max="1" step="0.01" value="1">
+      <output id="topPOut">1.00</output>
+    </div>
+    <div class="row">
+      <div>
+        <label for="seed">Seed <small>(blank = random each run)</small></label>
+        <input id="seed" type="number" step="1">
+      </div>
+      <div>
+        <label for="maxTokens">Max tokens</label>
+        <input id="maxTokens" type="number" min="1" step="1" value="256">
+      </div>
+      <div>
+        <label for="autoRun">Auto re-run on slider change</label>
+        <select id="autoRun"><option value="on">On</option><option value="off">Off</option></select>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Your prompt <small>· saved automatically in this browser</small></h2>
+    <textarea id="prompt" rows="3" placeholder="Write your prompt here…"></textarea>
+    <div class="btns" style="margin-top:10px">
+      <button id="runBtn" class="primary">Run all variants</button>
+      <button id="stopBtn" disabled>Stop</button>
+      <span id="runStatus" class="status"></span>
+    </div>
+  </section>
+
+  <section>
+    <h2>System-prompt variants <small>· same prompt + parameters sent to each variant</small></h2>
+    <div id="variantGrid" class="grid"></div>
+    <div class="btns" style="margin-top:10px">
+      <button id="addVariantBtn">+ Add variant</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Presets <small>· export/import everything as JSON</small></h2>
+    <div class="btns">
+      <button id="exportBtn">Export preset JSON</button>
+      <button id="importBtn">Import preset JSON</button>
+      <button id="resetBtn">Reset to defaults</button>
+    </div>
+    <p class="meta">Presets contain your prompt, variants, parameter values, base URL and model name. Nothing else — no keys, no history. Import replaces the settings above.</p>
+  </section>
+
+  <footer>LLM Parameter Playground · MIT License · © 2026 Asdale Dynamics, LLC · works with any OpenAI-compatible server</footer>
+</main>
+
+<dialog id="importDialog">
+  <div class="modal-body">
+    <h2>Import preset</h2>
+    <label for="importText">Paste preset JSON (or choose a file)</label>
+    <textarea id="importText" rows="10" placeholder='{"app":"llm-parameter-playground", …}'></textarea>
+    <input id="importFile" type="file" accept=".json,application/json">
+    <p id="importStatus" class="status"></p>
+    <div class="btns" style="justify-content:flex-end">
+      <button id="importCancelBtn">Cancel</button>
+      <button id="importOkBtn" class="primary">Import</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+/* CORE-BEGIN */
+"use strict";
+
+const CORE = {
+  APP_ID: "llm-parameter-playground",
+  PRESET_VERSION: 1,
+
+  clampNum(value, min, max) {
+    if (typeof value !== "number" || Number.isNaN(value)) return min;
+    return Math.min(max, Math.max(min, value));
+  },
+
+  roundTo(value, step) {
+    if (typeof value !== "number" || Number.isNaN(value)) return value;
+    const decimals = Math.max(0, (String(step).split(".")[1] || "").length);
+    return Number((Math.round(value / step) * step).toFixed(decimals));
+  },
+
+  normalizeTemperature(value) {
+    return CORE.roundTo(CORE.clampNum(Number(value), 0, 2), 0.01);
+  },
+
+  normalizeTopP(value) {
+    return CORE.roundTo(CORE.clampNum(Number(value), 0, 1), 0.01);
+  },
+
+  normalizeMaxTokens(value, fallback) {
+    const n = Math.round(Number(value));
+    if (!Number.isFinite(n) || n < 1) return fallback;
+    return n;
+  },
+
+  normalizeSeed(value) {
+    if (value === null || value === undefined || value === "") return null;
+    const n = Number(value);
+    if (!Number.isFinite(n)) return null;
+    return Math.round(n);
+  },
+
+  normalizeModel(model) {
+    const s = String(model == null ? "" : model).trim();
+    return s === "" ? "llama3.2" : s;
+  },
+
+  normalizeBaseUrl(url) {
+    const s = String(url == null ? "" : url).trim().replace(/\/+$/, "");
+    return s === "" ? "http://localhost:11434/v1" : s;
+  },
+
+  chatCompletionsUrl(baseUrl) {
+    return CORE.normalizeBaseUrl(baseUrl) + "/chat/completions";
+  },
+
+  buildRequestParams(params) {
+    const body = {
+      model: CORE.normalizeModel(params.model),
+      messages: [
+        { role: "system", content: String(params.system || "") },
+        { role: "user", content: String(params.prompt || "") }
+      ],
+      temperature: CORE.normalizeTemperature(params.temperature),
+      top_p: CORE.normalizeTopP(params.topP)
+    };
+    const maxTokens = CORE.normalizeMaxTokens(params.maxTokens, 256);
+    body.max_tokens = maxTokens;
+    body.max_completion_tokens = maxTokens;
+    const seed = CORE.normalizeSeed(params.seed);
+    if (seed !== null) body.seed = seed;
+    return body;
+  },
+
+  buildHeaders(params) {
+    const headers = { "Content-Type": "application/json" };
+    const key = params && params.apiKey ? String(params.apiKey).trim() : "";
+    if (key !== "") headers["Authorization"] = "Bearer " + key;
+    return headers;
+  },
+
+  serializePreset(state) {
+    return JSON.stringify({
+      app: CORE.APP_ID,
+      version: CORE.PRESET_VERSION,
+      preset: {
+        baseUrl: CORE.normalizeBaseUrl(state.baseUrl),
+        model: CORE.normalizeModel(state.model),
+        prompt: String(state.prompt || ""),
+        variants: (Array.isArray(state.variants) ? state.variants : [])
+          .slice(0, 8)
+          .map(v => ({ name: String((v && v.name) || "Variant"), text: String((v && v.text) || "") })),
+        params: {
+          temperature: CORE.normalizeTemperature(state.params && state.params.temperature),
+          topP: CORE.normalizeTopP(state.params && state.params.topP),
+          seed: CORE.normalizeSeed(state.params && state.params.seed),
+          maxTokens: CORE.normalizeMaxTokens(state.params && state.params.maxTokens, 256)
+        }
+      }
+    }, null, 2);
+  },
+
+  parsePreset(text) {
+    let data;
+    try {
+      data = JSON.parse(String(text));
+    } catch (e) {
+      return { ok: false, error: "Not valid JSON: " + e.message };
+    }
+    if (data === null || typeof data !== "object" || Array.isArray(data)) {
+      return { ok: false, error: "Preset must be a JSON object." };
+    }
+    const preset = data.preset !== undefined ? data.preset : data;
+    if (preset === null || typeof preset !== "object" || Array.isArray(preset)) {
+      return { ok: false, error: "Preset content must be a JSON object." };
+    }
+    if (data.app !== undefined && data.app !== CORE.APP_ID) {
+      return { ok: false, error: "This JSON was made for a different app (" + data.app + ")." };
+    }
+    const p = preset.params && typeof preset.params === "object" && !Array.isArray(preset.params)
+      ? preset.params : {};
+    return {
+      ok: true,
+      data: {
+        baseUrl: CORE.normalizeBaseUrl(preset.baseUrl),
+        model: CORE.normalizeModel(preset.model),
+        prompt: String(preset.prompt || ""),
+        variants: (Array.isArray(preset.variants) ? preset.variants : [])
+          .slice(0, 8)
+          .map(v => ({
+            name: String((v && v.name) || "Variant"),
+            text: String((v && v.text) || "")
+          })),
+        params: {
+          temperature: CORE.normalizeTemperature(p.temperature),
+          topP: CORE.normalizeTopP(p.topP),
+          seed: CORE.normalizeSeed(p.seed),
+          maxTokens: CORE.normalizeMaxTokens(p.maxTokens, 256)
+        }
+      }
+    };
+  }
+};
+if (typeof module !== "undefined" && module.exports) module.exports = CORE;
+/* CORE-END */
+
+if (typeof document !== "undefined") {
+
+const $ = id => document.getElementById(id);
+const STORAGE_KEY = "llm-parameter-playground-state-v1";
+const DEFAULTS = {
+  baseUrl: "http://localhost:11434/v1",
+  model: "llama3.2",
+  apiKey: "",
+  prompt: "Explain what temperature does in an LLM, like a friend would.",
+  variants: [
+    { name: "Variant 1", text: "" },
+    { name: "Variant 2", text: "Answer in exactly one short paragraph." }
+  ],
+  params: { temperature: 0.7, topP: 1, seed: null, maxTokens: 256 },
+  autoRun: "on"
+};
+
+let state = loadState() || structuredClone(DEFAULTS);
+let controllers = [];
+let runTimer = null;
+let seq = 0;
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = CORE.parsePreset(raw);
+    if (!parsed.ok) return null;
+    const meta = JSON.parse(raw);
+    const saved = parsed.data;
+    saved.apiKey = localStorage.getItem(STORAGE_KEY + ".apiKey") || "";
+    saved.autoRun = meta.autoRun === "off" ? "off" : "on";
+    return saved;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveState() {
+  try {
+    const text = CORE.serializePreset(state);
+    const saved = Object.assign(JSON.parse(text), { autoRun: state.autoRun || "on" });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+    localStorage.setItem(STORAGE_KEY + ".apiKey", JSON.stringify(state.apiKey || ""));
+  } catch (e) {
+  }
+}
+
+function el(tag, attrs, children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") node.className = v;
+    else if (k === "text") node.textContent = v;
+    else node.setAttribute(k, v);
+  }
+  (children || []).forEach(c => node.appendChild(c));
+  return node;
+}
+
+function renderVariants() {
+  const grid = $("variantGrid");
+  grid.innerHTML = "";
+  state.variants.forEach((v, i) => {
+    const nameInput = el("input", { type: "text", value: v.name, "aria-label": "Variant name" });
+    nameInput.addEventListener("input", () => { state.variants[i].name = nameInput.value; saveState(); });
+    const removeBtn = el("button", { text: "✕", title: "Remove variant", "aria-label": "Remove variant " + v.name });
+    removeBtn.addEventListener("click", () => {
+      if (state.variants.length > 1) {
+        state.variants.splice(i, 1);
+        saveState(); renderVariants();
+      }
+    });
+    const head = el("div", { class: "col-head" }, [nameInput, removeBtn]);
+    const ta = el("textarea", { rows: "3", "aria-label": "System prompt for " + v.name, placeholder: "System prompt (optional)" });
+    ta.value = v.text;
+    ta.addEventListener("input", () => { state.variants[i].text = ta.value; saveState(); });
+    const out = el("div", { class: "output", id: "out-" + i });
+    out.textContent = "Not run yet.";
+    const meta = el("div", { class: "meta", id: "meta-" + i });
+    grid.appendChild(el("div", { class: "variant-col" }, [head, ta, out, meta]));
+  });
+  $("addVariantBtn").disabled = state.variants.length >= 8;
+}
+
+function connectControls() {
+  $("baseUrl").value = state.baseUrl;
+  $("model").value = state.model;
+  $("apiKey").value = state.apiKey || "";
+  $("prompt").value = state.prompt;
+  $("seed").value = state.params.seed === null ? "" : state.params.seed;
+  $("maxTokens").value = state.params.maxTokens;
+  $("autoRun").value = state.autoRun;
+
+  const temp = $("temp"), topP = $("topP");
+  temp.value = state.params.temperature;
+  topP.value = state.params.topP;
+  syncSliderOutputs();
+
+  temp.addEventListener("input", () => {
+    state.params.temperature = CORE.normalizeTemperature(temp.value);
+    temp.value = state.params.temperature;
+    syncSliderOutputs(); saveState(); scheduleAutoRun();
+  });
+  topP.addEventListener("input", () => {
+    state.params.topP = CORE.normalizeTopP(topP.value);
+    topP.value = state.params.topP;
+    syncSliderOutputs(); saveState(); scheduleAutoRun();
+  });
+  $("seed").addEventListener("input", e => {
+    state.params.seed = CORE.normalizeSeed(e.target.value);
+    saveState(); scheduleAutoRun();
+  });
+  $("maxTokens").addEventListener("input", e => {
+    state.params.maxTokens = CORE.normalizeMaxTokens(e.target.value, 256);
+    saveState(); scheduleAutoRun();
+  });
+  $("autoRun").addEventListener("change", e => { state.autoRun = e.target.value; saveState(); });
+  $("baseUrl").addEventListener("input", e => { state.baseUrl = e.target.value; saveState(); });
+  $("model").addEventListener("input", e => { state.model = e.target.value; saveState(); });
+  $("apiKey").addEventListener("input", e => { state.apiKey = e.target.value; saveState(); });
+  $("prompt").addEventListener("input", e => { state.prompt = e.target.value; saveState(); });
+
+  $("runBtn").addEventListener("click", () => runAll());
+  $("stopBtn").addEventListener("click", stopAll);
+  $("testBtn").addEventListener("click", testConnection);
+  $("addVariantBtn").addEventListener("click", () => {
+    if (state.variants.length < 8) {
+      state.variants.push({ name: "Variant " + (state.variants.length + 1), text: "" });
+      saveState(); renderVariants();
+    }
+  });
+  $("exportBtn").addEventListener("click", exportPreset);
+  $("importBtn").addEventListener("click", () => { $("importDialog").showModal(); $("importStatus").textContent = ""; });
+  $("importCancelBtn").addEventListener("click", () => $("importDialog").close());
+  $("importOkBtn").addEventListener("click", doImport);
+  $("importFile").addEventListener("change", async e => {
+    const f = e.target.files[0];
+    if (f) $("importText").value = await f.text();
+  });
+  $("resetBtn").addEventListener("click", () => {
+    if (!confirm("Reset everything (prompt, variants, params, endpoint) to defaults?")) return;
+    state = structuredClone(DEFAULTS);
+    saveState(); hydrate();
+  });
+}
+
+function syncSliderOutputs() {
+  $("tempOut").textContent = Number(state.params.temperature).toFixed(2);
+  $("topPOut").textContent = Number(state.params.topP).toFixed(2);
+}
+
+function hydrate() {
+  connectControls();
+  renderVariants();
+}
+
+function scheduleAutoRun() {
+  if (state.autoRun !== "on") return;
+  if (state.prompt.trim() === "" || state.baseUrl.trim() === "") return;
+  clearTimeout(runTimer);
+  $("runStatus").textContent = "Auto-running in 0.6s…";
+  const mySeq = ++seq;
+  runTimer = setTimeout(() => runAll(mySeq), 600);
+}
+
+function stopAll() {
+  controllers.forEach(c => { try { c.abort(); } catch (e) {} });
+  controllers = [];
+  $("stopBtn").disabled = true;
+  $("runStatus").textContent = "Stopped.";
+}
+
+function setOutputs(fn) {
+  state.variants.forEach((v, i) => fn($("out-" + i), $("meta-" + i), i));
+}
+
+async function runAll(forcedSeq) {
+  const mySeq = forcedSeq === undefined ? ++seq : forcedSeq;
+  if (state.prompt.trim() === "") {
+    $("runStatus").textContent = "Write a prompt first.";
+    return;
+  }
+  const url = CORE.chatCompletionsUrl(state.baseUrl);
+  const headers = CORE.buildHeaders(state);
+  controllers.forEach(c => { try { c.abort(); } catch (e) {} });
+  controllers = [];
+  setOutputs((out, meta) => { out.className = "output"; out.textContent = "…"; meta.textContent = ""; });
+  $("runBtn").disabled = true;
+  $("stopBtn").disabled = false;
+  $("runStatus").textContent = "Running " + state.variants.length + " variant(s)…";
+
+  const jobs = state.variants.map(async (v, i) => {
+    const ctrl = new AbortController();
+    controllers.push(ctrl);
+    const body = CORE.buildRequestParams({
+      prompt: state.prompt,
+      system: v.text,
+      temperature: state.params.temperature,
+      topP: state.params.topP,
+      seed: state.params.seed,
+      maxTokens: state.params.maxTokens,
+      model: state.model
+    });
+    const out = $("out-" + i), meta = $("meta-" + i);
+    try {
+      const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body), signal: ctrl.signal });
+      if (mySeq !== seq) return;
+      if (!res.ok) {
+        let detail = "";
+        try { const j = await res.json(); detail = (j.error && j.error.message) || JSON.stringify(j); } catch (e) { detail = res.statusText; }
+        throw new Error("HTTP " + res.status + " — " + detail);
+      }
+      const json = await res.json();
+      if (mySeq !== seq) return;
+      const msg = (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) || JSON.stringify(json).slice(0, 400);
+      out.textContent = msg.trim();
+      const usage = json.usage ? " · " + (json.usage.total_tokens !== undefined ? json.usage.total_tokens + " tokens" : "") : "";
+      meta.textContent = "ok" + usage;
+    } catch (err) {
+      if (mySeq !== seq) return;
+      out.className = "output err";
+      out.textContent = err.name === "AbortError" ? "Stopped." : String(err.message || err);
+      meta.textContent = "";
+    }
+  });
+
+  await Promise.all(jobs);
+  if (mySeq === seq) {
+    $("runBtn").disabled = false;
+    $("stopBtn").disabled = true;
+    controllers = [];
+    $("runStatus").textContent = "Done.";
+  }
+}
+
+async function testConnection() {
+  const status = $("connStatus");
+  status.className = "status";
+  status.textContent = "Testing " + CORE.normalizeBaseUrl(state.baseUrl) + "/models …";
+  try {
+    const res = await fetch(CORE.normalizeBaseUrl(state.baseUrl) + "/models", { headers: CORE.buildHeaders(state) });
+    if (!res.ok) throw new Error("HTTP " + res.status + " " + res.statusText);
+    const json = await res.json();
+    const ids = ((json.data || []).map(d => d.id) || []).slice(0, 5).join(", ");
+    status.className = "status ok";
+    status.textContent = "Connected." + (ids ? " Models include: " + ids + (json.data.length > 5 ? ", …" : "") : "");
+  } catch (err) {
+    status.className = "status err";
+    status.textContent = "Could not connect (" + err.message + "). If this should be Ollama, run `ollama serve` and make sure the URL ends in /v1.";
+  }
+}
+
+function exportPreset() {
+  const text = CORE.serializePreset(state);
+  const blob = new Blob([text], { type: "application/json" });
+  const a = el("a", { href: URL.createObjectURL(blob), download: "llm-parameter-playground-preset.json" });
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(a.href);
+  $("runStatus").textContent = "Preset JSON downloaded.";
+}
+
+function doImport() {
+  const res = CORE.parsePreset($("importText").value);
+  const status = $("importStatus");
+  if (!res.ok) {
+    status.className = "status err";
+    status.textContent = res.error;
+    return;
+  }
+  if (confirm("Import this preset? It replaces the settings above (your current settings stay until you change them).")) {
+    state = Object.assign({}, structuredClone(DEFAULTS), res.data, { apiKey: state.apiKey || "", autoRun: state.autoRun || "on" });
+    saveState();
+    hydrate();
+    $("importDialog").close();
+    $("runStatus").textContent = "Preset imported.";
+  }
+}
+
+hydrate();
+}
+</script>
+</body>
+</html>
